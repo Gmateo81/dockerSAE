@@ -1,37 +1,51 @@
-version: '3.9'
+version: '3.8'
 
 services:
-  webapp:
-    build:
-      context: ./webapp
-    container_name: php_app
+  web:
+    image: php:7.4-fpm
+    container_name: webapp
+    working_dir: /var/www/html
     volumes:
-      - ./webapp:/var/www/html
+      - ./app:/var/www/html
     depends_on:
       - mariadb
+    networks:
+      - app-network
+  
+  mariadb:
+    image: mariadb:10.5
+    container_name: db
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: reservation
+    networks:
+      - app-network
 
   nginx:
     image: nginx:latest
-    container_name: nginx_server
+    container_name: nginx
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./webapp:/var/www/html
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./app:/var/www/html
     ports:
       - "80:80"
     depends_on:
-      - webapp
+      - web
+    networks:
+      - app-network
 
-  mariadb:
-    image: mariadb:latest
-    container_name: mariadb
+  reverse-proxy:
+    image: jwilder/nginx-proxy
+    container_name: reverse-proxy
     environment:
-      MYSQL_ROOT_PASSWORD: example
-      MYSQL_DATABASE: gestion_salles
+      - DEFAULT_HOST=reservation-salles
     ports:
-      - "3306:3306"
+      - "80:80"
     volumes:
-      - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - app-network
 
-volumes:
-  db_data:
+networks:
+  app-network:
+    driver: bridge
