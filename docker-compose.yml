@@ -1,52 +1,37 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  web:
-    image: php:7.4-fpm
-    container_name: webapp
-    working_dir: /var/www/html
+  webapp:
+    build:
+      context: ./webapp
+    container_name: php_app
     volumes:
-      - ./app:/var/www/html
+      - ./webapp:/var/www/html
     depends_on:
       - mariadb
-    networks:
-      - app-network
-  
-  mariadb:
-    image: mariadb:10.5
-    container_name: db
-    environment:
-      MYSQL_ROOT_PASSWORD: example
-      MYSQL_DATABASE: reservation
-    networks:
-      - app-network
 
   nginx:
     image: nginx:latest
-    container_name: nginx
+    container_name: nginx_server
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./app:/var/www/html
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./webapp:/var/www/html
     ports:
-      - "8080:80"
+      - "80:80"
     depends_on:
-      - web
-    networks:
-      - app-network
+      - webapp
 
-  reverse-proxy:
-    image: jwilder/nginx-proxy
-    container_name: reverse-proxy
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb
     environment:
-      - DEFAULT_HOST=reservation-salles  # Définit le nom de domaine par défaut
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: gestion_salles
     ports:
-      - "80:80"  # Mappe le port 80 sur la machine hôte vers le container reverse-proxy
+      - "3306:3306"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf   # Utilise la configuration personnalisée
-      - /var/run/docker.sock:/tmp/docker.sock:ro  # Permet à Nginx de détecter les containers Docker
-    networks:
-      - app-network
+      - db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
-networks:
-  app-network:
-    driver: bridge
+volumes:
+  db_data:
